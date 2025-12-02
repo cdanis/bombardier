@@ -139,7 +139,7 @@ const (
 {{- end -}}
 
 {{- with .LatenciesStats (FloatsToArray 0.5 0.75 0.9 0.95 0.99) -}}
-,"latency":{"mean":{{ .Mean -}}
+,"latencyUsecs":{"mean":{{ .Mean -}}
 ,"stddev":{{ .Stddev -}}
 ,"max":{{ .Max -}}
 
@@ -167,5 +167,6 @@ const (
 }}
 {{- end -}}
 }}
-{{- end -}}`
+{{- end }}
+`
 )

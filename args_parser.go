@@ -28,6 +28,7 @@ type kingpinParser struct {
 	latencies         bool
 	insecure          bool
 	disableKeepAlives bool
+	randomClientIP    bool
 	method            string
 	body              string
 	bodyFilePath      string
@@ -57,9 +58,10 @@ func newKingpinParser() argsParser {
 		stream:       false,
 		certPath:     "",
 		keyPath:      "",
-		insecure:     false,
-		url:          "",
-		rate:         new(nullableUint64),
+		insecure:      false,
+		randomClientIP: false,
+		url:           "",
+		rate:          new(nullableUint64),
 		clientType:   fhttp,
 		printSpec:    new(nullableString),
 		noPrint:      false,
@@ -111,6 +113,10 @@ func newKingpinParser() argsParser {
 		"Disable HTTP keep-alive. For fasthttp use -H 'Connection: close'").
 		Short('a').
 		BoolVar(&kparser.disableKeepAlives)
+
+	app.Flag("random-client-ip",
+		"Send requests with a random X-Client-IP header").
+		BoolVar(&kparser.randomClientIP)
 
 	app.Flag("header", "HTTP headers to use(can be repeated)").
 		PlaceHolder("\"K: V\"").
@@ -226,6 +232,7 @@ func (k *kingpinParser) parse(args []string) (config, error) {
 		printLatencies:    k.latencies,
 		insecure:          k.insecure,
 		disableKeepAlives: k.disableKeepAlives,
+		randomClientIP:    k.randomClientIP,
 		rate:              k.rate.val,
 		clientType:        k.clientType,
 		printIntro:        pi,

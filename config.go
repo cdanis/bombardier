@@ -24,6 +24,7 @@ type config struct {
 	// calculate for [0.5, 0.75, 0.9, 0.99]
 	printLatencies, insecure bool
 	rate                     *uint64
+	randomClientIP           bool
 	clientType               clientTyp
 
 	printIntro, printProgress, printResult bool

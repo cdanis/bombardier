@@ -133,11 +133,12 @@ func newBombardier(c config) (*bombardier, error) {
 		tlsConfig:         tlsConfig,
 		disableKeepAlives: c.disableKeepAlives,
 
-		headers:      c.headers,
-		requestURL:   c.url,
-		method:       c.method,
-		body:         pbody,
-		bodProd:      bsp,
+		headers:        c.headers,
+		requestURL:     c.url,
+		method:         c.method,
+		body:           pbody,
+		bodProd:        bsp,
+		randomClientIP: c.randomClientIP,
 		bytesRead:    &b.bytesRead,
 		bytesWritten: &b.bytesWritten,
 	}

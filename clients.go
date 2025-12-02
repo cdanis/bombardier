@@ -2,8 +2,10 @@ package main
 
 import (
 	"crypto/tls"
+	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"strings"
@@ -14,6 +16,14 @@ import (
 
 type client interface {
 	do() (code int, usTaken uint64, err error)
+}
+
+func randomIPv4() string {
+	return fmt.Sprintf("%d.%d.%d.%d",
+		rand.Intn(256),
+		rand.Intn(256),
+		rand.Intn(256),
+		rand.Intn(256))
 }
 
 type bodyStreamProducer func() (io.ReadCloser, error)
@@ -30,8 +40,9 @@ type clientOpts struct {
 	headers    *headersList
 	method     string
 
-	body    *string
-	bodProd bodyStreamProducer
+	body           *string
+	bodProd        bodyStreamProducer
+	randomClientIP bool
 
 	bytesRead, bytesWritten *int64
 }
@@ -43,8 +54,9 @@ type fasthttpClient struct {
 	uri     *fasthttp.URI
 	method  string
 
-	body    *string
-	bodProd bodyStreamProducer
+	body           *string
+	bodProd        bodyStreamProducer
+	randomClientIP bool
 }
 
 func newFastHTTPClient(opts *clientOpts) client {
@@ -72,6 +84,7 @@ func newFastHTTPClient(opts *clientOpts) client {
 	c.headers = headersToFastHTTPHeaders(opts.headers)
 	c.method, c.body = opts.method, opts.body
 	c.bodProd = opts.bodProd
+	c.randomClientIP = opts.randomClientIP
 	return client(c)
 }
 
@@ -83,6 +96,9 @@ func (c *fasthttpClient) do() (
 	resp := fasthttp.AcquireResponse()
 	if c.headers != nil {
 		c.headers.CopyTo(&req.Header)
+	}
+	if c.randomClientIP {
+		req.Header.Set("X-Client-IP", randomIPv4())
 	}
 	req.Header.SetMethod(c.method)
 	req.SetURI(c.uri)
@@ -121,8 +137,9 @@ type httpClient struct {
 	url     *url.URL
 	method  string
 
-	body    *string
-	bodProd bodyStreamProducer
+	body           *string
+	bodProd        bodyStreamProducer
+	randomClientIP bool
 }
 
 func newHTTPClient(opts *clientOpts) client {
@@ -147,6 +164,7 @@ func newHTTPClient(opts *clientOpts) client {
 	c.headers = headersToHTTPHeaders(opts.headers)
 	c.method, c.body, c.bodProd = opts.method, opts.body, opts.bodProd
 	c.url = opts.requestURL
+	c.randomClientIP = opts.randomClientIP
 
 	return client(c)
 }
@@ -159,6 +177,9 @@ func (c *httpClient) do() (
 	req.Header = c.headers
 	req.Method = c.method
 	req.URL = c.url
+	if c.randomClientIP {
+		req.Header.Set("X-Client-IP", randomIPv4())
+	}
 
 	if host := req.Header.Get("Host"); host != "" {
 		req.Host = host
