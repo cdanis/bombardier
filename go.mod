@@ -1,4 +1,4 @@
-module github.com/codesenberg/bombardier
+module github.com/cdanis/bombardier
 
 go 1.22
 
