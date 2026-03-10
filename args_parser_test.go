@@ -834,3 +834,39 @@ func TestEmbeddedURLParsing(t *testing.T) {
 		t.Errorf("got %q, wanted %q", c.url, url)
 	}
 }
+
+func TestRandomClientIPCardinalityParsing(t *testing.T) {
+	p := newKingpinParser()
+	c, err := p.parse([]string{
+		programName,
+		"--random-client-ip-cardinality", "5",
+		"https://somehost.somedomain",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !c.randomClientIP {
+		t.Fatal("randomClientIP should be enabled when cardinality is provided")
+	}
+	if c.randomClientIPCardinality == nil || *c.randomClientIPCardinality != 5 {
+		t.Fatalf("expected randomClientIPCardinality=5, got %+v", c.randomClientIPCardinality)
+	}
+}
+
+func TestRandomClientIPSeedParsing(t *testing.T) {
+	p := newKingpinParser()
+	c, err := p.parse([]string{
+		programName,
+		"--random-client-ip-seed", "42",
+		"https://somehost.somedomain",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !c.randomClientIP {
+		t.Fatal("randomClientIP should be enabled when seed is provided")
+	}
+	if c.randomClientIPSeed == nil || *c.randomClientIPSeed != 42 {
+		t.Fatalf("expected randomClientIPSeed=42, got %+v", c.randomClientIPSeed)
+	}
+}

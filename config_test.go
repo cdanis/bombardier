@@ -55,6 +55,8 @@ func TestCheckArgs(t *testing.T) {
 	negativeTimeoutDuration := -1 * time.Second
 	noHeaders := new(headersList)
 	zeroRate := uint64(0)
+	zeroCardinality := uint64(0)
+	tooLargeCardinality := uint64(^uint(0)>>1) + 1
 	expectations := []struct {
 		in  config
 		out error
@@ -245,6 +247,36 @@ func TestCheckArgs(t *testing.T) {
 				format:       knownFormat("plain-text"),
 			},
 			errBodyProvidedTwice,
+		},
+		{
+			config{
+				numConns:                  defaultNumberOfConns,
+				numReqs:                   &defaultNumberOfReqs,
+				duration:                  &defaultTestDuration,
+				url:                       ParseURLOrPanic("http://localhost:8080"),
+				headers:                   noHeaders,
+				timeout:                   defaultTimeout,
+				method:                    "GET",
+				randomClientIP:            true,
+				randomClientIPCardinality: &zeroCardinality,
+				format:                    knownFormat("plain-text"),
+			},
+			errInvalidRandomClientIPCardinality,
+		},
+		{
+			config{
+				numConns:                  defaultNumberOfConns,
+				numReqs:                   &defaultNumberOfReqs,
+				duration:                  &defaultTestDuration,
+				url:                       ParseURLOrPanic("http://localhost:8080"),
+				headers:                   noHeaders,
+				timeout:                   defaultTimeout,
+				method:                    "GET",
+				randomClientIP:            true,
+				randomClientIPCardinality: &tooLargeCardinality,
+				format:                    knownFormat("plain-text"),
+			},
+			errRandomClientIPCardinalityTooLarge,
 		},
 	}
 	for _, e := range expectations {

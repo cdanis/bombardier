@@ -78,3 +78,30 @@ func TestNullableStringConversionToString(t *testing.T) {
 		t.Errorf("Expected %q, but got %q", someVal, act)
 	}
 }
+
+func TestNullableInt64ConversionToString(t *testing.T) {
+	nilInt := &nullableInt64{val: nil}
+	if s := nilInt.String(); s != "nil" {
+		t.Errorf("Expected \"nil\", but got %v", s)
+	}
+	v := int64(-42)
+	nonNilInt := &nullableInt64{val: &v}
+	if s, e := nonNilInt.String(), strconv.FormatInt(v, 10); s != e {
+		t.Errorf("Expected %v, but got %v", e, s)
+	}
+}
+
+func TestNullableInt64Parsing(t *testing.T) {
+	n := &nullableInt64{}
+	if err := n.Set(""); err == nil {
+		t.Error("Should fail on empty string")
+	}
+	b := big.NewInt(math.MaxInt64)
+	b.Add(b, big.NewInt(1))
+	if err := n.Set(b.String()); err == nil {
+		t.Error("Should fail on out of range values")
+	}
+	if err := n.Set("-42"); err != nil || *n.val != int64(-42) {
+		t.Error("Shouldn't fail on correct values")
+	}
+}

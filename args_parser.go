@@ -20,23 +20,25 @@ type kingpinParser struct {
 
 	url string
 
-	numReqs           *nullableUint64
-	duration          *nullableDuration
-	headers           *headersList
-	numConns          uint64
-	timeout           time.Duration
-	latencies         bool
-	insecure          bool
-	disableKeepAlives bool
-	randomClientIP    bool
-	method            string
-	body              string
-	bodyFilePath      string
-	stream            bool
-	certPath          string
-	keyPath           string
-	rate              *nullableUint64
-	clientType        clientTyp
+	numReqs                   *nullableUint64
+	duration                  *nullableDuration
+	headers                   *headersList
+	numConns                  uint64
+	timeout                   time.Duration
+	latencies                 bool
+	insecure                  bool
+	disableKeepAlives         bool
+	randomClientIP            bool
+	randomClientIPCardinality *nullableUint64
+	randomClientIPSeed        *nullableInt64
+	method                    string
+	body                      string
+	bodyFilePath              string
+	stream                    bool
+	certPath                  string
+	keyPath                   string
+	rate                      *nullableUint64
+	clientType                clientTyp
 
 	printSpec *nullableString
 	noPrint   bool
@@ -46,26 +48,28 @@ type kingpinParser struct {
 
 func newKingpinParser() argsParser {
 	kparser := &kingpinParser{
-		numReqs:      new(nullableUint64),
-		duration:     new(nullableDuration),
-		headers:      new(headersList),
-		numConns:     defaultNumberOfConns,
-		timeout:      defaultTimeout,
-		latencies:    false,
-		method:       "GET",
-		body:         "",
-		bodyFilePath: "",
-		stream:       false,
-		certPath:     "",
-		keyPath:      "",
-		insecure:      false,
-		randomClientIP: false,
-		url:           "",
-		rate:          new(nullableUint64),
-		clientType:   fhttp,
-		printSpec:    new(nullableString),
-		noPrint:      false,
-		formatSpec:   "plain-text",
+		numReqs:                   new(nullableUint64),
+		duration:                  new(nullableDuration),
+		headers:                   new(headersList),
+		numConns:                  defaultNumberOfConns,
+		timeout:                   defaultTimeout,
+		latencies:                 false,
+		method:                    "GET",
+		body:                      "",
+		bodyFilePath:              "",
+		stream:                    false,
+		certPath:                  "",
+		keyPath:                   "",
+		insecure:                  false,
+		randomClientIP:            false,
+		randomClientIPCardinality: new(nullableUint64),
+		randomClientIPSeed:        new(nullableInt64),
+		url:                       "",
+		rate:                      new(nullableUint64),
+		clientType:                fhttp,
+		printSpec:                 new(nullableString),
+		noPrint:                   false,
+		formatSpec:                "plain-text",
 	}
 
 	app := kingpin.New("", "Fast cross-platform HTTP benchmarking tool").
@@ -117,6 +121,14 @@ func newKingpinParser() argsParser {
 	app.Flag("random-client-ip",
 		"Send requests with a random X-Client-IP header").
 		BoolVar(&kparser.randomClientIP)
+	app.Flag("random-client-ip-cardinality",
+		"Number of distinct X-Client-IP values to cycle through").
+		PlaceHolder("[pos. int.]").
+		SetValue(kparser.randomClientIPCardinality)
+	app.Flag("random-client-ip-seed",
+		"PRNG seed for generating deterministic X-Client-IP values").
+		PlaceHolder("[int]").
+		SetValue(kparser.randomClientIPSeed)
 
 	app.Flag("header", "HTTP headers to use(can be repeated)").
 		PlaceHolder("\"K: V\"").
@@ -206,6 +218,9 @@ func (k *kingpinParser) parse(args []string) (config, error) {
 	if k.noPrint {
 		pi, pp, pr = false, false, false
 	}
+	if k.randomClientIPCardinality.val != nil || k.randomClientIPSeed.val != nil {
+		k.randomClientIP = true
+	}
 	format := formatFromString(k.formatSpec)
 	if format == nil {
 		return emptyConf, fmt.Errorf(
@@ -217,28 +232,30 @@ func (k *kingpinParser) parse(args []string) (config, error) {
 		return emptyConf, err
 	}
 	return config{
-		numConns:          k.numConns,
-		numReqs:           k.numReqs.val,
-		duration:          k.duration.val,
-		url:               url,
-		headers:           k.headers,
-		timeout:           k.timeout,
-		method:            k.method,
-		body:              k.body,
-		bodyFilePath:      k.bodyFilePath,
-		stream:            k.stream,
-		keyPath:           k.keyPath,
-		certPath:          k.certPath,
-		printLatencies:    k.latencies,
-		insecure:          k.insecure,
-		disableKeepAlives: k.disableKeepAlives,
-		randomClientIP:    k.randomClientIP,
-		rate:              k.rate.val,
-		clientType:        k.clientType,
-		printIntro:        pi,
-		printProgress:     pp,
-		printResult:       pr,
-		format:            format,
+		numConns:                  k.numConns,
+		numReqs:                   k.numReqs.val,
+		duration:                  k.duration.val,
+		url:                       url,
+		headers:                   k.headers,
+		timeout:                   k.timeout,
+		method:                    k.method,
+		body:                      k.body,
+		bodyFilePath:              k.bodyFilePath,
+		stream:                    k.stream,
+		keyPath:                   k.keyPath,
+		certPath:                  k.certPath,
+		printLatencies:            k.latencies,
+		insecure:                  k.insecure,
+		disableKeepAlives:         k.disableKeepAlives,
+		randomClientIP:            k.randomClientIP,
+		randomClientIPCardinality: k.randomClientIPCardinality.val,
+		randomClientIPSeed:        k.randomClientIPSeed.val,
+		rate:                      k.rate.val,
+		clientType:                k.clientType,
+		printIntro:                pi,
+		printProgress:             pp,
+		printResult:               pr,
+		format:                    format,
 	}, nil
 }
 

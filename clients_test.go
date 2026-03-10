@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"sync/atomic"
 	"testing"
 
@@ -169,5 +170,36 @@ func TestHTTP1Clients(t *testing.T) {
 		if bytesWritten == 0 {
 			t.Errorf("empty request of size: %v", bytesWritten)
 		}
+	}
+}
+
+func TestRandomIPv4GeneratorWithCardinality(t *testing.T) {
+	seed := int64(42)
+	g := randomIPv4GeneratorWithCardinality(3, &seed)
+	seq := []string{g(), g(), g(), g(), g(), g()}
+
+	expected := []string{seq[0], seq[1], seq[2], seq[0], seq[1], seq[2]}
+	if !reflect.DeepEqual(seq, expected) {
+		t.Fatalf("expected repeating sequence %v, got %v", expected, seq)
+	}
+
+	distinct := map[string]struct{}{}
+	for _, ip := range seq[:3] {
+		distinct[ip] = struct{}{}
+	}
+	if len(distinct) != 3 {
+		t.Fatalf("expected 3 distinct IPs in cycle, got %d", len(distinct))
+	}
+}
+
+func TestRandomIPv4GeneratorWithSeed(t *testing.T) {
+	seed := int64(7)
+	g1 := randomIPv4Generator(&seed)
+	g2 := randomIPv4Generator(&seed)
+
+	seq1 := []string{g1(), g1(), g1()}
+	seq2 := []string{g2(), g2(), g2()}
+	if !reflect.DeepEqual(seq1, seq2) {
+		t.Fatalf("expected deterministic sequences to match, got %v and %v", seq1, seq2)
 	}
 }

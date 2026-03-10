@@ -51,7 +51,11 @@ var (
 		"no Path to TLS Client Certificate Private Key")
 	errZeroRate = errors.New(
 		"rate can't be less than 1")
-	errBodyProvidedTwice = errors.New("use either --body or --body-file")
+	errBodyProvidedTwice                = errors.New("use either --body or --body-file")
+	errInvalidRandomClientIPCardinality = errors.New(
+		"random-client-ip-cardinality must be > 0")
+	errRandomClientIPCardinalityTooLarge = errors.New(
+		"random-client-ip-cardinality is too large")
 
 	errInvalidHeaderFormat = errors.New("invalid header format")
 	errEmptyPrintSpec      = errors.New(

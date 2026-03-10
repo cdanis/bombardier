@@ -22,10 +22,12 @@ type config struct {
 	// re(named&maked) into printPercentiles or even let
 	// users provide their own percentiles and not just
 	// calculate for [0.5, 0.75, 0.9, 0.99]
-	printLatencies, insecure bool
-	rate                     *uint64
-	randomClientIP           bool
-	clientType               clientTyp
+	printLatencies, insecure  bool
+	rate                      *uint64
+	randomClientIP            bool
+	randomClientIPCardinality *uint64
+	randomClientIPSeed        *int64
+	clientType                clientTyp
 
 	printIntro, printProgress, printResult bool
 
@@ -54,6 +56,7 @@ func (c *config) checkArgs() error {
 	checks := []func() error{
 		c.checkURL,
 		c.checkRate,
+		c.checkRandomClientIPParameters,
 		c.checkRunParameters,
 		c.checkTimeoutDuration,
 		c.checkHTTPParameters,
@@ -95,6 +98,20 @@ func (c *config) checkURL() error {
 func (c *config) checkRate() error {
 	if c.rate != nil && *c.rate < 1 {
 		return errZeroRate
+	}
+	return nil
+}
+
+func (c *config) checkRandomClientIPParameters() error {
+	if c.randomClientIPCardinality == nil {
+		return nil
+	}
+	if *c.randomClientIPCardinality < 1 {
+		return errInvalidRandomClientIPCardinality
+	}
+	maxInt := uint64(^uint(0) >> 1)
+	if *c.randomClientIPCardinality > maxInt {
+		return errRandomClientIPCardinalityTooLarge
 	}
 	return nil
 }

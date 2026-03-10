@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 )
@@ -64,5 +65,26 @@ func (n *nullableString) String() string {
 func (n *nullableString) Set(value string) error {
 	n.val = new(string)
 	*n.val = value
+	return nil
+}
+
+type nullableInt64 struct {
+	val *int64
+}
+
+func (n *nullableInt64) String() string {
+	if n.val == nil {
+		return nilStr
+	}
+	return fmt.Sprintf("%d", *n.val)
+}
+
+func (n *nullableInt64) Set(value string) error {
+	res, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return err
+	}
+	n.val = new(int64)
+	*n.val = res
 	return nil
 }

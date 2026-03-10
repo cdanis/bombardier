@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/valyala/fasthttp"
@@ -18,12 +20,63 @@ type client interface {
 	do() (code int, usTaken uint64, err error)
 }
 
-func randomIPv4() string {
+func randomIPv4(r *rand.Rand) string {
 	return fmt.Sprintf("%d.%d.%d.%d",
-		rand.Intn(256),
-		rand.Intn(256),
-		rand.Intn(256),
-		rand.Intn(256))
+		r.Intn(256),
+		r.Intn(256),
+		r.Intn(256),
+		r.Intn(256))
+}
+
+func ipStringFromUint32(ip uint32) string {
+	return fmt.Sprintf("%d.%d.%d.%d",
+		byte(ip>>24),
+		byte(ip>>16),
+		byte(ip>>8),
+		byte(ip),
+	)
+}
+
+func randomIPv4Generator(seed *int64) func() string {
+	seedValue := time.Now().UnixNano()
+	if seed != nil {
+		seedValue = *seed
+	}
+	r := rand.New(rand.NewSource(seedValue))
+	var mx sync.Mutex
+	return func() string {
+		mx.Lock()
+		ip := randomIPv4(r)
+		mx.Unlock()
+		return ip
+	}
+}
+
+func randomIPv4UniqueSequenceGenerator(seed *int64) func() string {
+	seedValue := time.Now().UnixNano()
+	if seed != nil {
+		seedValue = *seed
+	}
+	start := uint32(seedValue)
+	step := uint32(uint64(seedValue>>32) | 1)
+	counter := uint64(0)
+	return func() string {
+		n := atomic.AddUint64(&counter, 1) - 1
+		return ipStringFromUint32(start + uint32(n)*step)
+	}
+}
+
+func randomIPv4GeneratorWithCardinality(cardinality uint64, seed *int64) func() string {
+	seq := randomIPv4UniqueSequenceGenerator(seed)
+	ipPool := make([]string, int(cardinality))
+	for i := range ipPool {
+		ipPool[i] = seq()
+	}
+	counter := uint64(0)
+	return func() string {
+		n := atomic.AddUint64(&counter, 1) - 1
+		return ipPool[n%uint64(len(ipPool))]
+	}
 }
 
 type bodyStreamProducer func() (io.ReadCloser, error)
@@ -40,9 +93,11 @@ type clientOpts struct {
 	headers    *headersList
 	method     string
 
-	body           *string
-	bodProd        bodyStreamProducer
-	randomClientIP bool
+	body                      *string
+	bodProd                   bodyStreamProducer
+	randomClientIP            bool
+	randomClientIPCardinality *uint64
+	randomClientIPSeed        *int64
 
 	bytesRead, bytesWritten *int64
 }
@@ -54,9 +109,9 @@ type fasthttpClient struct {
 	uri     *fasthttp.URI
 	method  string
 
-	body           *string
-	bodProd        bodyStreamProducer
-	randomClientIP bool
+	body                    *string
+	bodProd                 bodyStreamProducer
+	randomClientIPGenerator func() string
 }
 
 func newFastHTTPClient(opts *clientOpts) client {
@@ -84,7 +139,16 @@ func newFastHTTPClient(opts *clientOpts) client {
 	c.headers = headersToFastHTTPHeaders(opts.headers)
 	c.method, c.body = opts.method, opts.body
 	c.bodProd = opts.bodProd
-	c.randomClientIP = opts.randomClientIP
+	if opts.randomClientIP {
+		if opts.randomClientIPCardinality != nil {
+			c.randomClientIPGenerator = randomIPv4GeneratorWithCardinality(
+				*opts.randomClientIPCardinality,
+				opts.randomClientIPSeed,
+			)
+		} else {
+			c.randomClientIPGenerator = randomIPv4Generator(opts.randomClientIPSeed)
+		}
+	}
 	return client(c)
 }
 
@@ -97,8 +161,8 @@ func (c *fasthttpClient) do() (
 	if c.headers != nil {
 		c.headers.CopyTo(&req.Header)
 	}
-	if c.randomClientIP {
-		req.Header.Set("X-Client-IP", randomIPv4())
+	if c.randomClientIPGenerator != nil {
+		req.Header.Set("X-Client-IP", c.randomClientIPGenerator())
 	}
 	req.Header.SetMethod(c.method)
 	req.SetURI(c.uri)
@@ -137,9 +201,9 @@ type httpClient struct {
 	url     *url.URL
 	method  string
 
-	body           *string
-	bodProd        bodyStreamProducer
-	randomClientIP bool
+	body                    *string
+	bodProd                 bodyStreamProducer
+	randomClientIPGenerator func() string
 }
 
 func newHTTPClient(opts *clientOpts) client {
@@ -164,7 +228,16 @@ func newHTTPClient(opts *clientOpts) client {
 	c.headers = headersToHTTPHeaders(opts.headers)
 	c.method, c.body, c.bodProd = opts.method, opts.body, opts.bodProd
 	c.url = opts.requestURL
-	c.randomClientIP = opts.randomClientIP
+	if opts.randomClientIP {
+		if opts.randomClientIPCardinality != nil {
+			c.randomClientIPGenerator = randomIPv4GeneratorWithCardinality(
+				*opts.randomClientIPCardinality,
+				opts.randomClientIPSeed,
+			)
+		} else {
+			c.randomClientIPGenerator = randomIPv4Generator(opts.randomClientIPSeed)
+		}
+	}
 
 	return client(c)
 }
@@ -177,8 +250,8 @@ func (c *httpClient) do() (
 	req.Header = c.headers
 	req.Method = c.method
 	req.URL = c.url
-	if c.randomClientIP {
-		req.Header.Set("X-Client-IP", randomIPv4())
+	if c.randomClientIPGenerator != nil {
+		req.Header.Set("X-Client-IP", c.randomClientIPGenerator())
 	}
 
 	if host := req.Header.Get("Host"); host != "" {
